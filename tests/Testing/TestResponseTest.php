@@ -456,6 +456,22 @@ class TestResponseTest extends TestCase
         $response->assertForbidden();
     }
 
+    public function testServiceUnavailable()
+    {
+        $statusCode = 500;
+
+        $this->expectException(AssertionFailedError::class);
+
+        $this->expectExceptionMessage('Expected response status code');
+
+        $baseResponse = tap(new Response, function ($response) use ($statusCode) {
+            $response->setStatusCode($statusCode);
+        });
+
+        $response = TestResponse::fromBaseResponse($baseResponse);
+        $response->assertServiceUnavailable();
+    }
+
     public function testAssertUnauthorized()
     {
         $statusCode = 500;

@@ -181,6 +181,16 @@ class TestResponse implements ArrayAccess
     }
 
     /**
+     * Assert that the response has a 503 status code.
+     *
+     * @return $this
+     */
+    public function assertServiceUnavailable()
+    {
+        return $this->assertStatus(503);
+    }
+
+    /**
      * Get an assertion message for a status assertion containing extra details when available.
      *
      * @param  string|int  $expected

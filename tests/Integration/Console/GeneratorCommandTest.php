@@ -2,9 +2,10 @@
 
 namespace Illuminate\Tests\Integration\Console;
 
-use Orchestra\Testbench\Concerns\InteractsWithPublishedFiles;
 use Orchestra\Testbench\TestCase;
+use Illuminate\Console\GeneratorCommand;
 use PHPUnit\Framework\Attributes\DataProvider;
+use Orchestra\Testbench\Concerns\InteractsWithPublishedFiles;
 
 class GeneratorCommandTest extends TestCase
 {
@@ -56,6 +57,33 @@ class GeneratorCommandTest extends TestCase
             ->assertExitCode(0);
     }
 
+    public function testItGeneratesFilesInCustomPath()
+    {
+        GeneratorCommand::enforceFileMap([
+            'command.stub' => fn ($name) => app_path("Custom/{$name}.php")
+        ]);
+        
+        $this->artisan('make:command', ['name' => 'Foo'])
+            ->assertExitCode(0);
+
+        $this->assertFilenameExists('app/Custom/Foo.php');
+    }
+    
+    public function testItGeneratesFilesInCustomPathWithRespectedNamespaces()
+    {
+        GeneratorCommand::enforceFileMap([
+            'model.stub' => fn($name) => [
+                'path' => base_path("my/custom/path/{$name}.php"),
+                'namespace' => 'Custom\\Namespace'
+            ]
+        ]);
+    
+        $this->artisan('make:model', ['name' => 'Foo'])
+            ->assertExitCode(0);
+    
+        $this->assertFileExists(base_path('my/custom/path/Foo.php'));
+    }
+    
     public static function reservedNamesDataProvider()
     {
         yield ['__halt_compiler'];

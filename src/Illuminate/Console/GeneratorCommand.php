@@ -118,6 +118,13 @@ abstract class GeneratorCommand extends Command implements PromptsForMissingInpu
     ];
 
     /**
+     * An array to map stub names to their custom file paths.
+     *
+     * @var array<string, Closure>
+     */
+    protected static $fileMap = [];
+
+    /**
      * Create a new generator command instance.
      *
      * @param  \Illuminate\Filesystem\Filesystem  $files
@@ -195,6 +202,17 @@ abstract class GeneratorCommand extends Command implements PromptsForMissingInpu
     }
 
     /**
+     * Define the file map for stub generation and enforce custom paths for generated files.
+     *
+     * @param  array<string, Closure>  $mappers
+     * @return void
+     */
+    public static function enforceFileMap(array $mappers)
+    {
+        static::$fileMap = array_merge(static::$fileMap, $mappers);
+    }
+
+    /**
      * Parse the class name and format according to the root namespace.
      *
      * @param  string  $name
@@ -203,15 +221,41 @@ abstract class GeneratorCommand extends Command implements PromptsForMissingInpu
     protected function qualifyClass($name)
     {
         $name = ltrim($name, '\\/');
-
         $name = str_replace('/', '\\', $name);
-
         $rootNamespace = $this->rootNamespace();
-
+    
+        if (isset(static::$fileMap[basename($this->getStub())])) {
+            $result = static::$fileMap[basename($this->getStub())]($rootNamespace, $name);
+            
+            if (is_array($result) && isset($result['namespace'])) {
+                return rtrim($result['namespace'], '\\').'\\'.$name;
+            }
+            
+            // Get relative path
+            $relativePath = str_replace(
+                [base_path().'/', app_path().'/', 'app/'], 
+                ['', '', 'App'], 
+                dirname($result)
+            );
+            
+            // If it's just the app path with no subdirectories
+            if (strtolower($relativePath) === 'app' || $relativePath === '') {
+                return 'App\\'.$name;
+            }
+            
+            // Convert path to namespace and ensure App is capitalized
+            $pathAsNamespace = str_replace('/', '\\', $relativePath);
+            if (strtolower($pathAsNamespace) === 'app') {
+                $pathAsNamespace = 'App';
+            }
+            
+            return $pathAsNamespace.'\\'.$name;
+        }
+    
         if (Str::startsWith($name, $rootNamespace)) {
             return $name;
         }
-
+    
         return $this->qualifyClass(
             $this->getDefaultNamespace(trim($rootNamespace, '\\')).'\\'.$name
         );
@@ -306,8 +350,19 @@ abstract class GeneratorCommand extends Command implements PromptsForMissingInpu
      */
     protected function getPath($name)
     {
-        $name = Str::replaceFirst($this->rootNamespace(), '', $name);
+        $stubName = basename($this->getStub());
 
+        if (isset(static::$fileMap[$stubName])) {
+            $result = static::$fileMap[$stubName](
+                $this->getNameInput(),
+                $this->getDefaultNamespace(trim($this->rootNamespace(), '\\'))
+            );
+            
+            return is_array($result) ? $result['path'] : $result;
+        }
+    
+        $name = Str::replaceFirst($this->rootNamespace(), '', $name);
+    
         return $this->laravel['path'].'/'.str_replace('\\', '/', $name).'.php';
     }
 
